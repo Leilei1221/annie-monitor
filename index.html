@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>安妮考核台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Achromatic ledger, open-plane shell. Grid: sidebar 240px + fluid canvas (gutter 24px);
+   stations in 3 equal columns, gap 12px → 3 × col + 2 × 12 = canvas width. Colour only on data and status. */
+:root{
+  color-scheme:light;
+  --ground:#fbfaf6; --surface:#ffffff; --raised:#f1efe8; --border:#2b2f36; --rule:#d9d6cc; --control:#2b2f36;
+  --text:#1c1f24; --muted:#3f454d; --accent:#1c1f24; --accent-ink:#ffffff;
+  --positive:#2e7d32; --negative:#c4242a; --warning:#b45309; --data:#1d5fbf;
+  --band:#e2f2e5; --data-pale:#dbe7f8;
+  --pill-pos-bg:#dcfae5; --pill-pos-ink:#04250e; --pill-neg-bg:#ffedea; --pill-neg-ink:#831c1e;
+  --pill-warn-bg:#fff4d6; --pill-warn-ink:#7a3a0b; --pill-neu-bg:#eceef2; --pill-neu-ink:#3d3d3d;
+  --radius-card:8px; --radius-control:6px; --gap:14px; --pad:24px; --ctl:42px;
+  --sketch:18px 6px 16px 7px/7px 16px 6px 18px; --sketch2:6px 18px 7px 16px/16px 7px 18px 6px;
+  --fs-title:28px; --fs-section:19px; --fs-kpi:34px; --fs-body:17px; --fs-small:15px;
+  --font:"LXGW WenKai TC","Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--ground);color:var(--text);font-family:var(--font);font-size:var(--fs-body);line-height:1.5;margin:0}
+.num,input[type=number],td.n,th.n{font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{height:var(--ctl);padding:0 16px;border-radius:var(--sketch2);border:2px solid var(--control);font-weight:700;background:var(--surface);cursor:pointer;white-space:nowrap}
+button:hover{background:var(--raised)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.primary:hover{opacity:.88}
+button.ghost{border-color:transparent;background:transparent}
+button.ghost:hover{background:var(--raised)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary:disabled{background:var(--raised);color:var(--muted);border-color:var(--rule);opacity:1}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--data);outline-offset:2px}
+input[type=text],input[type=number],select{height:var(--ctl);border:2px solid var(--control);border-radius:var(--sketch);font-weight:700;background:var(--surface);padding:0 10px;min-width:0}
+label.chk{display:flex;gap:8px;align-items:center;cursor:pointer;min-height:32px}
+label.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.muted{color:var(--muted)} .small{font-size:var(--fs-small)}
+.pill{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;font-size:var(--fs-small);font-weight:700;white-space:nowrap}
+.pill.pos{background:var(--pill-pos-bg);color:var(--pill-pos-ink)} .pill.neg{background:var(--pill-neg-bg);color:var(--pill-neg-ink)}
+.pill.warn{background:var(--pill-warn-bg);color:var(--pill-warn-ink)} .pill.neu{background:var(--pill-neu-bg);color:var(--pill-neu-ink)}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100%}
+.side{padding:24px 16px;display:flex;flex-direction:column;gap:18px;border-right:2.5px dashed var(--rule);
+  padding-left:max(16px,env(safe-area-inset-left,0px))}
+.brand{display:flex;gap:10px;align-items:center;font-weight:700;font-size:16px}
+.brand svg{flex:none}
+.grp{display:flex;flex-direction:column;gap:8px}
+.grp h3{margin:0;font-size:var(--fs-small);font-weight:500;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{border:none;background:transparent;text-align:left;height:34px;padding:0 10px}
+.nav button[aria-current="page"]{background:var(--raised);font-weight:500}
+.side .timer{font-size:var(--fs-kpi);font-weight:500;letter-spacing:-.01em}
+.side .row{display:flex;gap:8px}
+.side .row>*{flex:1}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.canvas{padding:28px var(--pad) 40px;padding-right:max(var(--pad),env(safe-area-inset-right,0px));min-width:0;display:flex;flex-direction:column;gap:16px}
+.title-row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+h1{font-size:var(--fs-title);font-weight:700;margin:0;letter-spacing:-.01em}
+.finding{margin:2px 0 0;color:var(--muted)}
+.finding b{color:var(--text);font-weight:500}
+.banner{background:var(--pill-warn-bg);color:var(--pill-warn-ink);border-radius:var(--radius-control);padding:8px 12px;font-size:var(--fs-small);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner button{height:28px}
+
+/* ---------- stations：手繪白板（白底、粗黑框、彩色白板筆，給老花散光好讀） ---------- */
+.app.dash{--d-good:#1e9a4f;--d-warn:#d97a00;--d-bad:#d42a2a;--d-pause:#1c6fd6;--d-idle:#9aa0a6;--d-note:#fff1a6;--d-ink:#1c1f24}
+.stations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.st{background:#fff;border:2.5px solid var(--d-ink);border-radius:var(--sketch);display:flex;flex-direction:column;min-width:0;--c:var(--d-idle)}
+.st:nth-child(even){border-radius:var(--sketch2)}
+.st[data-state=good]{--c:var(--d-good)} .st[data-state=warn]{--c:var(--d-warn)} .st[data-state=bad]{--c:var(--d-bad)}
+.st[data-state=pause]{--c:var(--d-pause)} .st[data-state=ready]{--c:var(--d-good)}
+.st[data-state=bad]{border-color:var(--d-bad);border-width:4px}
+.st-head{display:flex;align-items:center;gap:8px;padding:8px 12px 6px;border-bottom:2px dashed var(--rule)}
+.st-head .no{font-weight:700;font-size:21px}
+.st-head .pause{color:var(--d-bad);font-weight:700;font-size:21px}
+.st-head .seat{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:16px;color:var(--muted)}
+.st-head .seat input{width:64px;height:38px;text-align:center;font-size:22px}
+.st-body{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px;padding:10px 12px 4px;align-items:center}
+.ring svg{width:100%;height:auto;display:block;max-width:168px;margin:0 auto;overflow:visible}
+.ring-track{fill:none;stroke:#e7e4da;stroke-width:12}
+.ring-band{fill:none;stroke:#bfe6c9;stroke-width:16}
+.ring-arc{fill:none;stroke:var(--c);stroke-width:12;stroke-linecap:round;transition:stroke .2s}
+.heart path{fill:var(--c);stroke:var(--d-ink);stroke-width:3;stroke-linejoin:round;transition:fill .2s}
+.heart{transform-origin:60px 62px}
+.heart.beat{animation:beat .28s ease-out}
+@keyframes beat{0%{transform:scale(1)}35%{transform:scale(1.12)}100%{transform:scale(1)}}
+.ring-top,.ring-bot{fill:var(--d-ink);font-size:13px;font-family:var(--font);font-weight:700}
+.side-info{display:flex;flex-direction:column;gap:12px;align-items:stretch;min-width:0}
+.board{background:var(--d-note);border:2px solid var(--d-ink);border-radius:var(--sketch2);padding:8px 10px;display:flex;flex-direction:column;color:var(--d-ink);transform:rotate(-1deg)}
+.board>span{font-size:15px}
+.board>b{font-size:34px;font-weight:700;line-height:1.05}
+.board-cells{display:grid;grid-template-columns:1fr;gap:2px;margin-top:4px}
+.board-cells div{display:flex;justify-content:space-between;align-items:baseline;gap:6px;min-width:0;border-top:1.5px dashed rgba(28,31,36,.35);padding-top:2px}
+.board-cells span{font-size:15px;white-space:nowrap}
+.board-cells b{font-size:18px;font-weight:700;white-space:nowrap}
+.cross{display:grid;grid-template-columns:repeat(3,24px);grid-template-rows:repeat(3,24px);gap:4px;justify-content:center}
+.cross i{width:24px;height:24px;border-radius:50%;background:#fff;border:2.5px solid var(--d-ink);display:block}
+.cross i[data-d=up]{grid-area:1/2} .cross i[data-d=left]{grid-area:2/1} .cross i[data-d=center]{grid-area:2/2} .cross i[data-d=right]{grid-area:2/3} .cross i[data-d=down]{grid-area:3/2}
+.cross i.lit-ok{background:var(--d-good)} .cross i.lit-bad{background:var(--d-bad)}
+.st-flags{display:flex;gap:6px;flex-wrap:wrap;min-height:28px;padding:0 12px}
+.st-flags .pill{height:28px;font-size:16px;font-weight:700;border-radius:var(--sketch2);border:2px solid currentColor}
+.st-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 12px 10px}
+.st-foot .sp{flex:1}
+.st-foot button{height:38px;padding:0 12px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--d-idle);display:inline-block;border:2px solid var(--d-ink)}
+.dot.on{background:var(--d-good)} .dot.lost{background:var(--d-bad)}
+.app.dash .timer{font-size:46px;font-weight:700}
+@media (prefers-reduced-motion:reduce){.heart.beat{animation:none}.board{transform:none}}
+
+/* ---------- results ---------- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{height:32px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:var(--gap);align-items:start}
+.card{background:var(--surface);border:2.5px solid var(--border);border-radius:var(--sketch);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{font-size:var(--fs-section);margin:0;font-weight:500}
+.scoreline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.scoreline .big{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 6px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font-size:var(--fs-small);font-weight:500;color:var(--muted);border-bottom-color:var(--border)}
+td.n,th.n{text-align:right}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--font)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-small);color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+ul.plain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.plain li{padding:6px 0;border-bottom:1px solid var(--rule);display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+ul.plain li:last-child{border-bottom:none}
+
+/* ---------- settings ---------- */
+.gl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field span{font-size:var(--fs-small);color:var(--muted)}
+.sum{font-size:var(--fs-small)}
+.sum.bad{color:var(--negative)}
+
+/* ---------- phone / portrait ---------- */
+@media (max-width:1100px){.stations{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{border-right:none;border-bottom:1px solid var(--border);padding:16px max(16px,env(safe-area-inset-left,0px)) 16px;padding-right:max(16px,env(safe-area-inset-right,0px));
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 12px;align-items:start}
+  .brand,.nav,.side-foot{grid-column:1/-1}
+  .nav{flex-direction:row}
+  .nav button{flex:1;text-align:center}
+  .side .timer{font-size:22px}
+  .side-foot{margin-top:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .side-foot label,.side-foot #exportMsg{grid-column:1/-1}
+  .canvas{padding:20px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+  .stations{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="app dash">
+  <aside class="side" aria-label="考試設定">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="6" fill="var(--accent)"/><path d="M5 15h4l2-5 3 10 2.5-7 1.5 2H23" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      安妮考核台
+    </div>
+    <nav class="nav" aria-label="畫面">
+      <button data-view="monitor" aria-current="page">即時監控</button>
+      <button data-view="results">成績</button>
+      <button data-view="settings">指南設定</button>
+    </nav>
+    <div class="grp">
+      <h3>這場考試</h3>
+      <div class="field"><span>班級</span><input type="text" id="cls" inputmode="numeric" placeholder="例如 305"></div>
+      <div class="field"><span>指南</span><select id="glSel"></select></div>
+      <label class="chk"><input type="checkbox" id="handoffOn"> 本次考試需要換手</label>
+    </div>
+    <div class="grp">
+      <h3>安妮面板顯示</h3>
+      <div class="row"><button id="ledAllOn">全開</button><button id="ledAllOff">全關</button></div>
+    </div>
+    <div class="grp">
+      <h3>考試時間</h3>
+      <div class="timer num" id="timer">00:00</div>
+      <button class="primary" id="btnStart">開始考試</button>
+      <button id="btnStop" disabled>結束考試</button>
+    </div>
+    <div class="side-foot">
+      <label class="chk small"><input type="checkbox" id="demo"> 示範模式（沒有安妮也能看效果）</label>
+      <button id="btnExportXlsx">匯出 Excel</button>
+      <button id="btnExportHtml">匯出成績報告</button>
+      <span class="small muted" id="exportMsg" role="status"></span>
+    </div>
+  </aside>
+
+  <main class="canvas">
+    <!-- monitor -->
+    <section id="v-monitor" aria-labelledby="h-monitor">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="title-row">
+          <div><h1 id="h-monitor">即時監控</h1><p class="finding" id="finding">尚未連線安妮。在卡片上按「連線」，從清單選安妮。</p></div>
+        </div>
+        <div class="banner" id="restoreBanner" hidden><span id="restoreText"></span><button id="btnRestore">找回</button><button class="ghost" id="btnDiscard">捨棄</button></div>
+        <div class="banner" id="serialBanner" hidden></div>
+        <div class="stations" id="stations"></div>
+      </div>
+    </section>
+
+    <!-- results -->
+    <section id="v-results" aria-labelledby="h-results" hidden>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="title-row"><div><h1 id="h-results">成績</h1><p class="finding" id="resFinding">考完後在這裡看每位同學的成績。</p></div></div>
+        <div class="tabs" role="tablist" id="resTabs"></div>
+        <div id="resBody"></div>
+      </div>
+    </section>
+
+    <!-- settings -->
+    <section id="v-settings" aria-labelledby="h-settings" hidden>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="title-row"><div><h1 id="h-settings">指南設定</h1><p class="finding">每組指南各自設定次數、標準、配分。配分各組合計須為 100。存在這台裝置上。</p></div>
+          <div class="row" style="display:flex;gap:8px"><button id="glAdd">新增指南</button><button id="glReset">恢復預設</button></div></div>
+        <div id="glList" style="display:flex;flex-direction:column;gap:12px"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SPP='00001101-0000-1000-8000-00805f9b34fb';
+const N_STATIONS=6;
+const PAUSE_MIN=2.0; // 秒：兩下按壓間隔超過這個值才算中斷
+const DIRS={up:'偏上',down:'偏下',left:'偏左',right:'偏右'};
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+/* ================= 指南（單一資料來源） ================= */
+const BASE={rateMin:100,rateMax:120,depthMin:50,depthMax:60,volMin:400,volMax:600,rtimeMin:0.5,rtimeMax:1.5,
+  w:{rate:25,depth:35,recoil:20,position:10,count:10},mode:'ratio',
+  all:{depth:true,rate:true,recoil:true,position:true,volume:true},pauseRed:10,aedRed:30,timeLimit:10};
+const DEFAULT_GL=[
+  {...BASE,id:'g1',name:'民眾版 200 下',compTarget:200,compLo:190,compHi:210,respTarget:0,ratioComp:100},
+  {...BASE,id:'g2',name:'專業版 30:2',compTarget:300,compLo:270,compHi:330,respTarget:20,ratioComp:80},
+  {...BASE,id:'g3',name:'只考吹氣',compTarget:0,compLo:0,compHi:0,respTarget:10,ratioComp:0}
+].map(g=>JSON.parse(JSON.stringify(g)));
+let guidelines=store.get('annie.gl',null)||JSON.parse(JSON.stringify(DEFAULT_GL));
+function gl(){return guidelines.find(g=>g.id===session.glId)||guidelines[0];}
+function saveGl(){store.set('annie.gl',guidelines);}
+
+/* ================= 計分（純函式） ================= */
+function pct(a,b){return b>0?a/b*100:0;}
+function countAcc(n,g){
+  if(g.compTarget<=0)return 0;
+  if(n>=g.compLo&&n<=g.compHi)return 100;
+  if(n<g.compLo)return Math.max(0,n/g.compTarget*100);
+  return Math.max(0,(g.compTarget-(n-g.compTarget))/g.compTarget*100);
+}
+function score(r,g){
+  // r: 一位同學的統計（由安妮計數器累計而來）
+  const n=r.compTotal;
+  const acc={rate:pct(r.rateOk,n),depth:pct(r.depthOk,n),recoil:pct(r.recoil,n),position:pct(n-r.dirTotal,n),count:countAcc(n,g)};
+  let comp=0;
+  if(g.compTarget>0){
+    if(g.mode==='ratio'){
+      comp=(acc.rate*g.w.rate+acc.depth*g.w.depth+acc.recoil*g.w.recoil+acc.position*g.w.position+acc.count*g.w.count)/100;
+    }else{
+      comp=Math.min(r.allGood,g.compTarget)/g.compTarget*100;
+    }
+  }
+  // 吹氣：方案 A — 有吹進去 0.75、容量好再 +0.25；超過目標口數不加分
+  let resp=0;const T=g.respTarget;
+  if(T>0){const nb=Math.min(r.respTotal,T);const gb=Math.min(g.mode==='ratio'||g.all.volume?r.volOk:r.respTotal,nb);resp=(0.75*nb+0.25*gb)/T*100;}
+  const ratioResp=100-g.ratioComp;
+  const total=comp*g.ratioComp/100+resp*ratioResp/100;
+  return {acc,comp,resp,total,compPts:comp*g.ratioComp/100,respPts:resp*ratioResp/100};
+}
+
+/* ================= 場次狀態 ================= */
+const session={cls:'',glId:guidelines[0].id,handoff:false,running:false,t0:0,elapsed:0,startedAt:null,stations:[]};
+function newRec(){return {comps:[],breaths:[],handoffs:[],raw:null,off:{},peakDepth:0,peakVol:0,lastFrameT:0,
+  agg:{compTotal:0,rateOk:0,depthOk:0,recoil:0,dirTotal:0,up:0,down:0,left:0,right:0,respTotal:0,volOk:0,allGood:0},live:{depth:0,vol:0}};}
+for(let i=0;i<N_STATIONS;i++)session.stations.push({no:i+1,seat:'',led:true,status:'idle',port:null,writer:null,reader:null,sim:null,rec:newRec()});
+
+/* ================= 解析安妮資料 ================= */
+const u=(lo,hi)=>hi*100+lo;
+function decode(b){return {depth:100-b[0],comp:u(b[4],b[5]),rateOk:u(b[8],b[9]),depthOk:u(b[12],b[13]),recoil:u(b[14],b[15]),
+  up:b[16],down:b[17],right:b[18],left:b[19],vol:b[20]*10,resp:u(b[24],b[25]),volOk:u(b[28],b[29])};}
+const COUNTERS=['comp','rateOk','depthOk','recoil','up','down','left','right','resp','volOk'];
+function makeParser(st){
+  let buf=new Uint8Array(0);
+  return chunk=>{const nb=new Uint8Array(buf.length+chunk.length);nb.set(buf);nb.set(chunk,buf.length);buf=nb;
+    let i=0;while(buf.length-i>=36){if(buf[i+35]===55){onFrame(st,decode(buf.subarray(i,i+36)));i+=36;}else i++;}
+    buf=buf.slice(i);};
+}
+function onFrame(st,f){
+  const r=st.rec;const t=session.running?(performance.now()-session.t0)/1000:0;
+  r.live.depth=Math.max(0,f.depth);r.live.vol=f.vol;r.lastFrameT=performance.now();
+  if(!session.running){scheduleRender();return;}
+  // 計數器扣掉考試開始時的基準；重連後計數器歸零也能接續
+  const d={};
+  for(const k of COUNTERS){
+    if(!r.raw){d[k]=0;continue;}
+    if(f[k]<r.raw[k])r.off[k]=(r.off[k]||0)+r.raw[k];
+    d[k]=Math.max(0,f[k]-r.raw[k]);
+  }
+  if(!r.raw){r.raw={...f};r.base=true;scheduleRender();return;}
+  r.raw={...f};
+  r.peakDepth=Math.max(r.peakDepth,f.depth);r.peakVol=Math.max(r.peakVol,f.vol);
+  const a=r.agg;
+  // 新的按壓
+  for(let k=0;k<d.comp;k++){r.comps.push({t,depth:r.peakDepth,dir:null,depthOk:false,rateOk:false,recoil:false});}
+  if(d.comp>0)r.peakDepth=0;
+  const last=r.comps[r.comps.length-1];
+  if(last){
+    if(d.depthOk)last.depthOk=true; if(d.rateOk)last.rateOk=true; if(d.recoil)last.recoil=true;
+    for(const k of ['up','down','left','right'])if(d[k])last.dir=k;
+  }
+  for(let k=0;k<d.resp;k++){r.breaths.push({t,vol:r.peakVol,good:false});}
+  if(d.resp>0)r.peakVol=0;
+  const lb=r.breaths[r.breaths.length-1];
+  if(lb&&d.volOk){lb.good=true;}
+  if(lb&&f.vol>lb.vol&&t-lb.t<2)lb.vol=f.vol;
+  a.compTotal+=d.comp;a.rateOk+=d.rateOk;a.depthOk+=d.depthOk;a.recoil+=d.recoil;
+  for(const k of ['up','down','left','right']){a[k]+=d[k];a.dirTotal+=d[k];}
+  a.respTotal+=d.resp;a.volOk+=d.volOk;
+  if(d.comp||d.resp)autosave();
+  scheduleRender();
+}
+function allGoodCount(r,g){
+  return r.comps.filter(c=>(!g.all.depth||c.depthOk)&&(!g.all.rate||c.rateOk)&&(!g.all.recoil||c.recoil)&&(!g.all.position||!c.dir)).length;
+}
+
+/* ================= 衍生統計：中斷、位置錯誤區段、換手 ================= */
+function analyse(st){
+  const r=st.rec,g=gl(),c=r.comps;
+  const pauses=[];
+  for(let i=1;i<c.length;i++){const gap=c[i].t-c[i-1].t;if(gap>=PAUSE_MIN){
+    const nb=r.breaths.filter(b=>b.t>c[i-1].t&&b.t<=c[i].t).length;
+    pauses.push({after:i,start:c[i-1].t,dur:gap,breaths:nb});}}
+  // AED 中斷＝整場最長、且至少 8 秒的那一次（專業版的 AED 會接在吹氣後面，所以不排除含吹氣的中斷）
+  let aed=null;
+  pauses.forEach(p=>{if(!aed||p.dur>aed.dur)aed=p;});
+  if(aed&&aed.dur<8)aed=null;
+  const span=c.length>1?c[c.length-1].t-c[0].t:0;
+  const hands=pauses.reduce((s,p)=>s+p.dur,0);
+  const ccf=span>0?Math.max(0,(span-hands)/span*100):0;
+  // 位置錯誤區段（連續同方向合併）
+  const segs=[];let cur=null;
+  c.forEach((x,i)=>{if(x.dir){if(cur&&cur.dir===x.dir&&cur.to===i){cur.to=i+1;cur.n++;}else{cur={dir:x.dir,from:i+1,to:i+1,n:1,t:x.t};segs.push(cur);}}else cur=null;});
+  // 換手分段
+  const cuts=[0,...r.handoffs.filter(h=>h>0&&h<c.length).sort((a,b)=>a-b),c.length];
+  const parts=[];for(let i=0;i<cuts.length-1;i++){const a=cuts[i],b=cuts[i+1];if(b<=a)continue;
+    const errs=c.slice(a,b).filter(x=>x.dir).length;parts.push({who:i+1,from:a+1,to:b,errs,segs:segs.filter(s=>s.from>a&&s.from<=b)});}
+  const depths=c.map(x=>x.depth).filter(x=>x>0);
+  const avgDepth=depths.length?depths.reduce((s,x)=>s+x,0)/depths.length:0;
+  const rates=[];for(let i=1;i<c.length;i++){const gap=c[i].t-c[i-1].t;if(gap>0.25&&gap<PAUSE_MIN)rates.push(60/gap);}
+  const avgRate=rates.length?rates.reduce((s,x)=>s+x,0)/rates.length:0;
+  const over=r.breaths.filter(b=>b.vol>g.volMax).length;
+  const agg={...r.agg,allGood:allGoodCount(r,g)};
+  return {pauses,aed,ccf,segs,parts,avgDepth,avgRate,over,score:score(agg,g),agg,longest:pauses.reduce((m,p)=>Math.max(m,p.dur),0),
+    redPauses:pauses.filter(p=>p!==aed&&p.dur>g.pauseRed).length};
+}
+function liveRate(r){const c=r.comps;let k=0,span=0;
+  for(let i=c.length-1;i>0&&k<6;i--){const gap=c[i].t-c[i-1].t;if(gap>=PAUSE_MIN)break;span+=gap;k++;}
+  return k>=2&&span>0?k/span*60:0;}
+
+/* ================= 藍牙連線（每台各自獨立） ================= */
+const serialOK='serial' in navigator;
+async function connect(st,reuse){
+  if(session.demo){return;}
+  try{
+    const port=reuse&&st.port?st.port:await navigator.serial.requestPort({allowedBluetoothServiceClassIds:[SPP]});
+    st.status='connecting';render();
+    await port.open({baudRate:9600});
+    st.port=port;st.writer=port.writable.getWriter();st.status='on';
+    st.rec.raw=session.running?null:st.rec.raw;
+    readLoop(st,port);render();
+    if(session.running)handshake(st);
+  }catch(e){
+    st.status=st.port?'lost':'idle';
+    showSerialMsg(e.name==='SecurityError'?'這個頁面不允許使用藍牙序列埠。請把狀況告訴 Claude。':(e.name==='NotFoundError'?'':'第 '+st.no+' 台連線失敗：'+e.message));
+    render();
+  }
+}
+async function readLoop(st,port){
+  const parse=makeParser(st);
+  try{
+    while(port.readable&&st.port===port){
+      const reader=port.readable.getReader();st.reader=reader;
+      try{while(true){const {value,done}=await reader.read();if(done)break;if(value)parse(value);}}
+      finally{try{reader.releaseLock();}catch(e){}}
+      break;
+    }
+  }catch(e){/* 只影響這一台 */}
+  if(st.port===port&&st.status!=='closing'){st.status='lost';try{st.writer&&st.writer.releaseLock();}catch(e){}st.writer=null;try{await port.close();}catch(e){}render();}
+}
+async function disconnect(st){
+  st.status='closing';const p=st.port;
+  try{st.reader&&await st.reader.cancel();}catch(e){}
+  try{st.writer&&st.writer.releaseLock();}catch(e){}
+  try{p&&await p.close();}catch(e){}
+  st.port=null;st.writer=null;st.reader=null;st.status='idle';render();
+}
+function packet(st,init){const g=gl();
+  return new Uint8Array([init,st.led?2:3,0,g.depthMin,g.depthMax,g.rateMin,g.rateMax,Math.round(g.volMin/10),Math.round(g.volMax/10),Math.round(g.rtimeMin*10),Math.round(g.rtimeMax*10),0xFF]);}
+async function send(st,init){if(!st.writer)return;try{await st.writer.write(packet(st,init));}catch(e){}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function handshake(st){for(const v of [1,0,1,0,1,1,1,1]){await send(st,v);await sleep(100);}}
+function showSerialMsg(t){const b=$('serialBanner');b.textContent=t;b.hidden=!t;}
+
+/* ================= 示範模式：模擬安妮送出的 36 位元組資料 ================= */
+function startSim(st,seed){
+  const g=gl();let rnd=seed*7919+13;const rand=()=>((rnd=(rnd*9301+49297)%233280)/233280);
+  const c={comp:0,rateOk:0,depthOk:0,recoil:0,up:0,down:0,left:0,right:0,resp:0,volOk:0};
+  const profile=g.respTarget>0, breathOnly=g.compTarget<=0, shallow=seed%3===1;
+  let phase=breathOnly?'breath':'comp',tPhase=0,t=0,nextComp=0,inCycle=0,cycles=0,aedDone=false,errLeft=0,errDir=null,done=false;
+  let bpm=103+rand()*16,curTarget=0,depth=0,vol=0,bIdx=-1,bPeak=0,bCounted=false;
+  const pick=()=>{curTarget=(shallow?43:51)+rand()*(shallow?10:9);};pick();
+  const frame=()=>{const b=new Uint8Array(36);const put=(i,v)=>{b[i]=v%100;b[i+1]=Math.floor(v/100);};
+    b[0]=100-Math.round(depth);put(4,c.comp);put(8,c.rateOk);put(12,c.depthOk);put(14,c.recoil);
+    b[16]=c.up;b[17]=c.down;b[18]=c.right;b[19]=c.left;b[20]=Math.round(vol/10);put(24,c.resp);put(28,c.volOk);b[35]=55;return b;};
+  const parse=makeParser(st);
+  const tick=()=>{
+    if(!session.running)return;
+    t+=0.05;depth=0;vol=0;
+    if(!done&&phase==='comp'){
+      const period=60/bpm;const ph=((t-tPhase)%period)/period;
+      if(ph<0.5)depth=curTarget*Math.sin(ph*2*Math.PI);
+      if(t-tPhase>=nextComp+period){
+        nextComp+=period;c.comp++;inCycle++;
+        if(curTarget>=g.depthMin&&curTarget<=g.depthMax)c.depthOk++;
+        const br=bpm+(rand()-0.5)*16;if(br>=g.rateMin&&br<=g.rateMax)c.rateOk++;
+        if(rand()>0.05)c.recoil++;
+        if(errLeft<=0&&rand()<0.004){errLeft=4+Math.floor(rand()*30);errDir=['up','down','left','right'][Math.floor(rand()*4)];}
+        if(errLeft>0){c[errDir]++;errLeft--;}
+        pick();
+        if(c.comp>=g.compTarget){done=true;}
+        else if(profile&&inCycle>=30){phase='breath';tPhase=t;inCycle=0;bIdx=-1;}
+        else if(!profile&&!aedDone&&c.comp>=Math.round(g.compTarget/2)){phase='aed';tPhase=t;}
+      }
+    }else if(!done&&phase==='breath'){
+      const bt=t-tPhase;const idx=Math.floor(bt/2.4);const ib=bt-idx*2.4;
+      if(idx!==bIdx){bIdx=idx;bPeak=300+rand()*420;bCounted=false;}
+      if(ib<1.0)vol=bPeak*Math.sin(Math.PI*ib);
+      else if(!bCounted){bCounted=true;c.resp++;if(bPeak>=g.volMin&&bPeak<=g.volMax)c.volOk++;
+        if(breathOnly&&c.resp>=g.respTarget)done=true;
+        else if(!breathOnly&&idx>=1){cycles++;tPhase=t;nextComp=0;
+          if(!aedDone&&cycles===5){phase='aed';}else phase='comp';}}
+    }else if(!done&&phase==='aed'){
+      if(t-tPhase>14+seed*4){aedDone=true;phase='comp';tPhase=t;nextComp=0;}
+    }
+    st.simDone=done;
+    parse(frame());
+    if(done&&session.stations.every(s=>!s.sim||s.simDone))setTimeout(stopExam,800);
+  };
+  st.simDone=false;st.sim=setInterval(tick,50);st.status='on';
+}
+function stopSims(){session.stations.forEach(st=>{if(st.sim){clearInterval(st.sim);st.sim=null;st.status='idle';}});}
+
+/* ================= 考試流程 ================= */
+let timerInt=null;
+function startExam(){
+  if(session.running)return;
+  session.stations.forEach(st=>{st.rec=newRec();});
+  session.running=true;session.t0=performance.now();session.startedAt=new Date().toISOString();
+  session.stations.forEach(st=>{if(st.writer)handshake(st);});
+  if(session.demo){stopSims();session.stations.forEach((st,i)=>{if(i<5)startSim(st,i+1);});}
+  timerInt=setInterval(()=>{session.elapsed=(performance.now()-session.t0)/1000;$('timer').textContent=fmtClock(session.elapsed);
+    if(session.demo&&session.elapsed>gl().timeLimit*60)stopExam();},250);
+  render();
+}
+function stopExam(){
+  if(!session.running)return;
+  session.running=false;clearInterval(timerInt);
+  session.stations.forEach(st=>{if(st.writer)send(st,0);});
+  stopSims();autosave(true);render();
+  resultSel=session.stations.findIndex(st=>st.rec.comps.length||st.rec.breaths.length);if(resultSel<0)resultSel=0;
+  setView('results');
+}
+function fmtClock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function fmtT(s){const m=Math.floor(s/60),x=Math.round(s%60);return m?`${m} 分 ${x} 秒`:`${x} 秒`;}
+
+/* ================= 自動暫存 ================= */
+let lastSave=0;
+function snapshot(){return {cls:session.cls,glId:session.glId,handoff:session.handoff,startedAt:session.startedAt,elapsed:session.elapsed,
+  stations:session.stations.map(st=>({seat:st.seat,led:st.led,rec:{comps:st.rec.comps,breaths:st.rec.breaths,handoffs:st.rec.handoffs,agg:st.rec.agg}}))};}
+function autosave(force){const now=Date.now();if(!force&&now-lastSave<2000)return;lastSave=now;if(session.demo)return;store.set('annie.session',snapshot());}
+function restore(s){session.cls=s.cls||'';session.glId=s.glId;session.handoff=!!s.handoff;session.startedAt=s.startedAt;session.elapsed=s.elapsed||0;
+  s.stations.forEach((x,i)=>{const st=session.stations[i];if(!st)return;st.seat=x.seat||'';st.led=x.led!==false;st.rec=newRec();Object.assign(st.rec,x.rec);});
+  $('cls').value=session.cls;$('handoffOn').checked=session.handoff;$('glSel').value=session.glId;$('timer').textContent=fmtClock(session.elapsed);render();}
+
+/* ================= 畫面：即時監控 ================= */
+let renderPending=false;
+function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;renderLive();});}
+function stationShell(st){
+  const el=document.createElement('article');el.className='st';el.id='st'+st.no;el.setAttribute('aria-label','安妮 '+st.no);
+  const C=2*Math.PI*50;
+  el.innerHTML=`
+    <div class="st-head"><span class="dot" data-k="dot"></span><span class="no">安妮 ${st.no}</span><span class="pause num" data-k="pause"></span>
+      <label class="seat"><span>座號</span><input type="text" inputmode="numeric" data-k="seat" aria-label="安妮 ${st.no} 座號" value="${esc(st.seat)}"></label></div>
+    <div class="st-body">
+      <div class="ring" data-k="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><defs><filter id="rough${st.no}" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="${st.no}"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter></defs><g filter="url(#rough${st.no})">
+          <circle cx="60" cy="60" r="50" class="ring-track"/>
+          <circle cx="60" cy="60" r="50" class="ring-band" data-k="band" stroke-dasharray="0 ${C}" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="50" class="ring-arc" data-k="arc" stroke-dasharray="0 ${C}" transform="rotate(-90 60 60)"/>
+          </g><g filter="url(#rough${st.no})"><g class="heart" data-k="heart"><path d="__HEART__"/></g></g>
+          <text x="60" y="27" text-anchor="middle" class="ring-top num" data-k="depth">— mm</text>
+          <text x="60" y="108" text-anchor="middle" class="ring-bot num" data-k="rate">— bpm</text>
+        </svg>
+      </div>
+      <div class="side-info">
+        <div class="board"><span>暫估分數</span><b class="num" data-k="score">—</b>
+          <div class="board-cells"><div><span>按壓</span><b class="num" data-k="comp">0</b></div><div><span>吹氣</span><b class="num" data-k="resp">0</b></div></div></div>
+        <div class="cross" data-k="cross" aria-label="手的位置">
+          <i data-d="up"></i><i data-d="left"></i><i data-d="center"></i><i data-d="right"></i><i data-d="down"></i>
+        </div>
+      </div>
+    </div>
+    <div class="st-flags" data-k="flags"></div>
+    <div class="st-foot">
+      <label class="chk small"><input type="checkbox" data-k="led" ${st.led?'checked':''}> 面板顯示</label>
+      <span class="sp"></span>
+      <button data-k="hand" hidden>換手</button><button class="ghost" data-k="undo" hidden>復原</button>
+      <button data-k="conn">連線</button>
+    </div>`.replace('__HEART__','M60 92 C38 76 26 64 26 50 C26 41 33 34 42 34 C50 34 56 39 60 45 C64 39 70 34 78 34 C87 34 94 41 94 50 C94 64 82 76 60 92Z');
+  el.querySelector('[data-k=seat]').addEventListener('input',e=>{st.seat=e.target.value.trim();autosave();});
+  el.querySelector('[data-k=led]').addEventListener('change',e=>{st.led=e.target.checked;});
+  el.querySelector('[data-k=hand]').addEventListener('click',()=>{st.rec.handoffs.push(st.rec.comps.length);autosave(true);scheduleRender();});
+  el.querySelector('[data-k=undo]').addEventListener('click',()=>{st.rec.handoffs.pop();scheduleRender();});
+  el.querySelector('[data-k=conn]').addEventListener('click',()=>{
+    if(st.status==='on'&&!session.demo)disconnect(st);else if(st.status==='lost')connect(st,true);else connect(st);});
+  return el;
+}
+function render(){
+  const box=$('stations');
+  if(box.children.length!==N_STATIONS){box.textContent='';session.stations.forEach(st=>box.appendChild(stationShell(st)));}
+  $('btnStart').disabled=session.running;$('btnStop').disabled=!session.running;
+  $('glSel').disabled=session.running;$('handoffOn').disabled=session.running;
+  renderLive();
+  if(currentView==='results')renderResults();
+}
+function renderLive(){
+  const g=gl();let nOn=0,nLost=0;let worst=null;const C=2*Math.PI*50;const MAXD=70;
+  session.stations.forEach(st=>{
+    const el=$('st'+st.no);if(!el)return;const q=k=>el.querySelector(`[data-k=${k}]`);const r=st.rec;
+    const on=st.status==='on';if(on)nOn++;if(st.status==='lost')nLost++;
+    q('dot').className='dot'+(on?' on':st.status==='lost'?' lost':'');
+    const conn=q('conn');conn.textContent=session.demo?(on?'示範中':'示範'):(on?'中斷':st.status==='lost'?'重新連線':st.status==='connecting'?'連線中…':'連線');
+    conn.disabled=session.demo||st.status==='connecting'||(!serialOK);
+    q('led').disabled=session.running;
+    const dep=on?r.live.depth:0;
+    q('depth').textContent=on?Math.round(dep)+' mm':'— mm';
+    q('arc').setAttribute('stroke-dasharray',`${(Math.min(dep,MAXD)/MAXD*C).toFixed(1)} ${C}`);
+    // 標準範圍 5–6 公分畫在圓環上
+    const b0=g.depthMin/MAXD*C,b1=(g.depthMax-g.depthMin)/MAXD*C;q('band').setAttribute('stroke-dasharray',`0 ${b0.toFixed(1)} ${b1.toFixed(1)} ${C}`);
+    const lr=liveRate(r);const last=r.comps[r.comps.length-1];const sinceLast=last?(session.elapsed-last.t):0;
+    const pausing=session.running&&last&&sinceLast>=PAUSE_MIN;
+    q('rate').textContent=(lr&&!pausing?Math.round(lr):'—')+' bpm';
+    q('comp').textContent=r.agg.compTotal+(g.compTarget?`/${g.compTarget}`:'');
+    q('resp').textContent=r.agg.respTotal+(g.respTarget?`/${g.respTarget}`:'');
+    const a=(r.comps.length||r.breaths.length)?analyse(st):null;
+    q('score').textContent=a?a.score.total.toFixed(1):'—';
+    // 狀態顏色：綠＝正確、黃＝深度或速率不對、紅＝位置錯或中斷過久、藍＝中斷中、灰＝未開始
+    let state='idle';
+    if(on&&session.running&&last){
+      if(pausing)state=sinceLast>g.pauseRed?'bad':'pause';
+      else if(last.dir)state='bad';
+      else if(!last.depthOk||(lr&&(lr<g.rateMin||lr>g.rateMax)))state='warn';
+      else state='good';
+    }else if(on)state='ready';
+    el.dataset.state=state;
+    // 每壓一下愛心跳一下
+    const n=r.comps.length;if(n!==st._lastN){st._lastN=n;const h=q('heart');h.classList.remove('beat');void h.getBoundingClientRect();if(n)h.classList.add('beat');}
+    // 手位置十字燈
+    q('cross').querySelectorAll('i').forEach(i=>{const d=i.dataset.d;
+      i.className=!session.running||!last||pausing?'':(d==='center'?(last.dir?'':'lit-ok'):(last.dir===d?'lit-bad':''));});
+    q('pause').textContent=pausing?fmtClock(sinceLast):'';
+    if(pausing&&(!worst||sinceLast>worst.s))worst={s:sinceLast,no:st.no,seat:st.seat};
+    const flags=[];
+    if(st.status==='lost')flags.push('<span class="pill neg">已斷線，紀錄已保留</span>');
+    if(session.running&&last&&last.dir&&!pausing)flags.push(`<span class="pill neg">${DIRS[last.dir]}・第 ${n} 下</span>`);
+    if(session.handoff&&r.handoffs.length)flags.push(`<span class="pill neu">第 ${r.handoffs.length+1} 位</span>`);
+    if(!st.led)flags.push('<span class="pill neu">面板關</span>');
+    q('flags').innerHTML=flags.join('');
+    q('hand').hidden=!(session.handoff&&session.running);q('undo').hidden=!(session.handoff&&session.running&&r.handoffs.length);
+    const si=q('seat');if(document.activeElement!==si&&si.value!==st.seat)si.value=st.seat;
+  });
+  // 標題下的一句重點
+  let f;
+  if(session.demo&&!session.running)f='示範模式：按「開始考試」，5 台模擬安妮會開始送資料。';
+  else if(!nOn&&!session.running)f=serialOK?'尚未連線安妮。在卡片上按「連線」，從清單選安妮。':'這個瀏覽器不能連藍牙安妮（iPad、iPhone 都不行），請改用 Android 或電腦的 Chrome。';
+  else if(session.running){f=`<b>${nOn} 台</b>連線中`+(nLost?`，<b>${nLost} 台斷線</b>（其他台不受影響）`:'')+(worst?`｜安妮 ${worst.no}${worst.seat?'（'+esc(worst.seat)+' 號）':''} 已中斷 <b>${Math.floor(worst.s)} 秒</b>`:'');}
+  else f=`<b>${nOn} 台</b>已連線，可以開始考試。座號隨時都能改。`;
+  $('finding').innerHTML=f;
+}
+
+/* ================= 畫面：成績 ================= */
+let resultSel=0;
+function seatLabel(st){return (session.cls?session.cls+' 班 ':'')+(st.seat?st.seat+' 號':'安妮 '+st.no);}
+function renderResults(){
+  const tabs=$('resTabs');tabs.textContent='';
+  const has=session.stations.filter(st=>st.rec.comps.length||st.rec.breaths.length);
+  if(!has.length){$('resBody').innerHTML='<div class="card"><h2>還沒有成績</h2><p class="muted" style="margin:0">考完一場後，每位同學的成績會出現在這裡。想先看樣子，可以勾左下角「示範模式」再按「開始考試」。</p></div>';
+    $('resFinding').textContent='考完後在這裡看每位同學的成績。';return;}
+  if(!session.stations[resultSel]||!has.includes(session.stations[resultSel]))resultSel=session.stations.indexOf(has[0]);
+  has.forEach(st=>{const b=document.createElement('button');b.setAttribute('role','tab');b.setAttribute('aria-selected',String(session.stations.indexOf(st)===resultSel));
+    b.textContent=st.seat?st.seat+' 號':'安妮 '+st.no;b.onclick=()=>{resultSel=session.stations.indexOf(st);renderResults();};tabs.appendChild(b);});
+  const st=session.stations[resultSel];const a=analyse(st);const g=gl();
+  const lowest=has.map(s=>({s,v:analyse(s).score.total})).sort((x,y)=>x.v-y.v)[0];
+  $('resFinding').innerHTML=`${has.length} 位同學完成｜指南：${esc(g.name)}｜最低分 <b>${lowest.v.toFixed(1)}</b>（${esc(seatLabel(lowest.s))}）`;
+  $('resBody').innerHTML=reportHTML(st,a,g,true);
+  bindHandoffEdit(st);
+}
+function reportHTML(st,a,g,interactive){
+  const s=a.score,r=st.rec,n=a.agg.compTotal;
+  const row=(k,v,ok)=>`<tr><td>${k}</td><td class="n num">${v}</td></tr>`;
+  const accRow=(k,acc,w)=>`<tr><td>${k}</td><td class="n num">${acc.toFixed(0)}%</td><td class="n num muted">${g.mode==='ratio'?w:'—'}</td></tr>`;
+  const aedTxt=a.aed?`${a.aed.dur.toFixed(1)} 秒（第 ${a.aed.after} 下之前）`:'—';
+  const aedRed=a.aed&&a.aed.dur>g.aedRed;
+  const pauses=a.pauses.length?a.pauses.map(p=>{const isA=p===a.aed;const red=isA?p.dur>g.aedRed:p.dur>g.pauseRed;
+    return `<li><span>${fmtT(p.start)}起・第 ${p.after} 下前${isA?'・<b>AED</b>':p.breaths?`・吹氣 ${p.breaths} 口`:''}</span><span class="pill ${red?'neg':'neu'} num">${p.dur.toFixed(1)} 秒</span></li>`;}).join(''):'<li><span class="muted">沒有超過 2 秒的中斷</span></li>';
+  const segList=list=>list.length?list.map(x=>`<li><span>第 ${x.from}${x.to>x.from?'–'+x.to:''} 下・${DIRS[x.dir]}${x.n>1?`（連續 ${x.n} 下）`:''}</span><span class="muted num">${fmtT(x.t)}起</span></li>`).join(''):'<li><span class="muted">位置都正確</span></li>';
+  const posBlock=session.handoff&&a.parts.length>1?a.parts.map(p=>`<h3 style="margin:8px 0 0;font-size:14px;font-weight:500">第 ${p.who} 位・第 ${p.from}–${p.to} 下・壓錯 ${p.errs} 下</h3><ul class="plain">${segList(p.segs)}</ul>`).join(''):`<ul class="plain">${segList(a.segs)}</ul>`;
+  return `<div class="split">
+  <div class="card">
+    <h2>${esc(seatLabel(st))}</h2>
+    <div class="scoreline"><span class="big num">${s.total.toFixed(1)}</span><span class="muted">分</span>
+      <span class="small muted">${esc(g.name)}・${g.mode==='ratio'?'依比例給分':'全對才給分'}・面板${st.led?'開':'關'}</span></div>
+    <table><thead><tr><th>壓胸 ${g.ratioComp}%</th><th class="n">正確率</th><th class="n">配分</th></tr></thead><tbody>
+      ${g.compTarget?accRow('速率 '+g.rateMin+'–'+g.rateMax,s.acc.rate,g.w.rate)+accRow('深度 '+g.depthMin/10+'–'+g.depthMax/10+' 公分',s.acc.depth,g.w.depth)+accRow('完全回彈',s.acc.recoil,g.w.recoil)+accRow('手的位置',s.acc.position,g.w.position)+accRow('次數 '+n+' 下（目標 '+g.compTarget+'）',s.acc.count,g.w.count):'<tr><td colspan="3" class="muted">這組指南不考壓胸</td></tr>'}
+      <tr><td><b>壓胸得分</b></td><td class="n num"><b>${s.compPts.toFixed(1)}</b></td><td></td></tr>
+    </tbody></table>
+    ${g.respTarget?`<table><thead><tr><th>吹氣 ${100-g.ratioComp}%</th><th class="n"></th></tr></thead><tbody>
+      ${row('有吹進去',a.agg.respTotal+' / '+g.respTarget+' 口')}${row('容量 '+g.volMin+'–'+g.volMax+' ml',a.agg.volOk+' 口')}${row('過度通氣（不扣分）',a.over+' 口')}
+      <tr><td><b>吹氣得分</b></td><td class="n num"><b>${s.respPts.toFixed(1)}</b></td></tr></tbody></table>`:''}
+    <table><thead><tr><th>中斷時間（不計分）</th><th class="n"></th></tr></thead><tbody>
+      <tr><td>AED 中斷</td><td class="n num">${aedRed?`<span class="pill neg">${aedTxt}</span>`:aedTxt}</td></tr>
+      ${row('最長中斷',a.longest?a.longest.toFixed(1)+' 秒':'—')}${row('超過 '+g.pauseRed+' 秒的其他中斷',a.redPauses+' 次')}${row('按壓時間占比',a.ccf?a.ccf.toFixed(0)+'%':'—')}
+      ${row('平均深度',a.avgDepth?(a.avgDepth/10).toFixed(1)+' 公分':'—')}${row('平均速率',a.avgRate?Math.round(a.avgRate)+' 次/分':'—')}
+    </tbody></table>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+    <div class="card"><h2>每一下的按壓深度</h2>
+      <div class="legend"><span><i style="background:var(--data)"></i>位置正確</span><span><i style="background:var(--negative)"></i>位置錯誤</span><span><i style="background:var(--band)"></i>${g.depthMin/10}–${g.depthMax/10} 公分</span><span>虛線＝換手${interactive?'（點長條可補標或移除）':''}</span></div>
+      <div class="chart" data-chart="depth">${depthChart(r,a,g)}</div></div>
+    ${g.respTarget||r.breaths.length?`<div class="card"><h2>每一口的吹氣量</h2><div class="legend"><span><i style="background:var(--data)"></i>容量正確</span><span><i style="background:var(--control)"></i>有吹進去</span><span><i style="background:var(--warning)"></i>過度通氣</span><span><i style="background:var(--band)"></i>${g.volMin}–${g.volMax} ml</span></div><div class="chart">${breathChart(r,g)}</div></div>`:''}
+    <div class="card"><h2>位置壓錯</h2>${posBlock}</div>
+    <div class="card"><h2>中斷紀錄</h2><ul class="plain">${pauses}</ul></div>
+  </div></div>`;
+}
+function depthChart(r,a,g){
+  const c=r.comps;const W=720,H=200,L=30,R=8,T=10,B=24;const iw=W-L-R,ih=H-T-B;const max=70;
+  if(!c.length)return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="沒有按壓資料"><line x1="${L}" x2="${W-R}" y1="${T+ih}" y2="${T+ih}" stroke="var(--border)"/><text x="${L+8}" y="${T+ih/2}">沒有按壓資料</text></svg>`;
+  const y=v=>T+ih-v/max*ih;const bw=iw/c.length;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="每一下按壓深度">`;
+  s+=`<rect x="${L}" y="${y(g.depthMax)}" width="${iw}" height="${y(g.depthMin)-y(g.depthMax)}" fill="var(--band)"/>`;
+  [0,20,40,60].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`;});
+  c.forEach((x,i)=>{const h=Math.max(1,x.depth/max*ih);s+=`<rect data-i="${i}" x="${(L+i*bw+bw*0.12).toFixed(2)}" y="${(T+ih-h).toFixed(2)}" width="${Math.max(0.6,bw*0.76).toFixed(2)}" height="${h.toFixed(2)}" fill="${x.dir?'var(--negative)':'var(--data)'}" style="cursor:pointer"/>`;});
+  a.pauses.forEach(p=>{const xx=L+p.after*bw;const isA=p===a.aed;const red=isA?p.dur>g.aedRed:p.dur>g.pauseRed;if(p.dur<5&&!red)return;
+    s+=`<text x="${xx}" y="${T+9}" text-anchor="middle" style="fill:${red?'var(--negative)':'var(--muted)'};font-weight:500">${isA?'AED ':''}${Math.round(p.dur)}s</text>`;});
+  r.handoffs.forEach(h=>{const xx=L+h*bw;s+=`<line x1="${xx}" x2="${xx}" y1="${T+12}" y2="${T+ih}" stroke="var(--text)" stroke-dasharray="4 3"/>`;});
+  const step=c.length>200?100:c.length>60?50:10;for(let k=step;k<=c.length;k+=step){s+=`<text x="${L+(k-0.5)*bw}" y="${H-6}" text-anchor="middle">${k}</text>`;}
+  return s+`<text x="${L}" y="${H-6}">第幾下</text></svg>`;
+}
+function breathChart(r,g){
+  const b=r.breaths;const W=720,H=140,L=36,R=8,T=8,B=22;const iw=W-L-R,ih=H-T-B;const max=1000;
+  const y=v=>T+ih-Math.min(v,max)/max*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="每一口吹氣量"><rect x="${L}" y="${y(g.volMax)}" width="${iw}" height="${y(g.volMin)-y(g.volMax)}" fill="var(--band)"/>`;
+  [0,500,1000].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`;});
+  if(!b.length)return s+`<text x="${L+8}" y="${T+ih/2}">沒有吹氣資料</text></svg>`;
+  const bw=Math.min(36,iw/b.length);
+  b.forEach((x,i)=>{const h=Math.max(1,Math.min(x.vol,max)/max*ih);const col=x.vol>g.volMax?'var(--warning)':(x.good?'var(--data)':'var(--control)');
+    s+=`<rect x="${(L+i*bw+bw*0.15).toFixed(1)}" y="${(T+ih-h).toFixed(1)}" width="${(bw*0.7).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}"/>`;});
+  for(let k=1;k<=b.length;k++){if(b.length>12&&k%5)continue;s+=`<text x="${L+(k-0.5)*bw}" y="${H-5}" text-anchor="middle">${k}</text>`;}
+  return s+'</svg>';
+}
+function bindHandoffEdit(st){
+  const svg=document.querySelector('[data-chart=depth] svg');if(!svg)return;
+  svg.addEventListener('click',e=>{const i=e.target.getAttribute&&e.target.getAttribute('data-i');if(i==null)return;const idx=+i;
+    const h=st.rec.handoffs;const k=h.indexOf(idx);if(k>=0)h.splice(k,1);else h.push(idx);h.sort((a,b)=>a-b);autosave(true);renderResults();});
+}
+
+/* ================= 畫面：指南設定 ================= */
+function renderSettings(){
+  const box=$('glList');box.textContent='';
+  guidelines.forEach((g,gi)=>{
+    const c=document.createElement('div');c.className='card';
+    const f=(label,key,step,obj)=>`<label class="field"><span>${label}</span><input type="number" step="${step||1}" data-key="${key}" data-obj="${obj||''}" value="${obj?g[obj][key]:g[key]}"></label>`;
+    const wsum=g.w.rate+g.w.depth+g.w.recoil+g.w.position+g.w.count;
+    c.innerHTML=`<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><input type="text" data-key="name" value="${esc(g.name)}" aria-label="指南名稱" style="font-weight:700;font-size:16px;flex:1;min-width:160px">
+      <select data-key="mode" aria-label="評分方式"><option value="ratio"${g.mode==='ratio'?' selected':''}>依比例給分</option><option value="all"${g.mode==='all'?' selected':''}>全對才給分</option></select>
+      ${guidelines.length>1?'<button class="ghost" data-del>刪除</button>':''}</div>
+      <h2>次數與總分比例</h2><div class="gl-grid">${f('目標壓胸次數','compTarget')}${f('容許下限','compLo')}${f('容許上限','compHi')}${f('目標吹氣口數','respTarget')}${f('壓胸占分（吹氣＝100－此值）','ratioComp')}${f('考試時間上限（分）','timeLimit')}</div>
+      <h2>標準範圍</h2><div class="gl-grid">${f('速率下限','rateMin')}${f('速率上限','rateMax')}${f('深度下限 mm','depthMin')}${f('深度上限 mm','depthMax')}${f('吹氣量下限 ml','volMin',10)}${f('吹氣量上限 ml','volMax',10)}${f('一般中斷標紅（秒）','pauseRed')}${f('AED 中斷標紅（秒）','aedRed')}</div>
+      <h2>壓胸配分（依比例給分用）</h2><div class="gl-grid">${f('速率','rate',1,'w')}${f('深度','depth',1,'w')}${f('回彈','recoil',1,'w')}${f('位置','position',1,'w')}${f('次數','count',1,'w')}</div>
+      <p class="sum ${wsum===100?'muted':'bad'}">合計 ${wsum}${wsum===100?'':'，須為 100'}</p>
+      <h2>全對才給分：要算的項目</h2><div style="display:flex;gap:16px;flex-wrap:wrap">
+      ${['depth:深度','rate:速率','recoil:回彈','position:位置','volume:吹氣容量'].map(x=>{const [k,l]=x.split(':');return `<label class="chk"><input type="checkbox" data-all="${k}" ${g.all[k]?'checked':''}> ${l}</label>`;}).join('')}</div>
+      <p class="small muted" style="margin:0">吹氣一律用方案 A：有吹進去每口 0.75、容量正確再加 0.25，超過目標口數不加分。</p>`;
+    c.addEventListener('change',e=>{const t=e.target;
+      if(t.dataset.all){g.all[t.dataset.all]=t.checked;}
+      else if(t.dataset.key==='name'){g.name=t.value.trim()||g.name;}
+      else if(t.dataset.key==='mode'){g.mode=t.value;}
+      else if(t.dataset.key){const v=Number(t.value);if(!isNaN(v)){if(t.dataset.obj)g[t.dataset.obj][t.dataset.key]=v;else g[t.dataset.key]=v;}}
+      saveGl();fillGlSel();renderSettings();});
+    const del=c.querySelector('[data-del]');if(del)del.onclick=()=>{guidelines.splice(gi,1);saveGl();fillGlSel();renderSettings();};
+    box.appendChild(c);
+  });
+}
+function fillGlSel(){const s=$('glSel');const v=session.glId;s.innerHTML=guidelines.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  if(!guidelines.find(g=>g.id===v))session.glId=guidelines[0].id;s.value=session.glId;}
+$('glAdd').onclick=()=>{const g=JSON.parse(JSON.stringify(gl()));g.id='g'+Date.now();g.name=g.name+'（複製）';guidelines.push(g);saveGl();fillGlSel();renderSettings();};
+$('glReset').onclick=()=>{guidelines=JSON.parse(JSON.stringify(DEFAULT_GL));saveGl();fillGlSel();renderSettings();};
+
+/* ================= 匯出 ================= */
+let downloads=null;
+(async()=>{try{downloads=window.claude&&window.claude.use?await window.claude.use('downloads'):null;}catch(e){downloads=null;}})();
+function fname(ext){const d=new Date(session.startedAt||Date.now());const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;return `${session.cls||'未填班級'}_CPR考核_${ds}.${ext}`;}
+async function save(filename,data){
+  const msg=$('exportMsg');
+  if(!downloads){ // 獨立網頁（GitHub Pages）：用一般下載
+    try{const blob=data instanceof Uint8Array?new Blob([data],{type:'application/octet-stream'}):new Blob([data],{type:'text/html;charset=utf-8'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);msg.textContent='已存成 '+filename;}
+    catch(e){msg.textContent='無法下載：'+e.message;}
+    return;}
+  try{await downloads.save({filename,data});msg.textContent='已存成 '+filename;}
+  catch(e){msg.textContent=e.code==='declined'?'已取消':'無法下載（'+(e.code||e.message)+'）';}
+}
+function doneStations(){return session.stations.filter(st=>st.rec.comps.length||st.rec.breaths.length);}
+$('btnExportXlsx').onclick=()=>{
+  const list=doneStations();if(!list.length){$('exportMsg').textContent='還沒有成績可以匯出';return;}
+  if(!window.XLSX){$('exportMsg').textContent='Excel 元件沒有載入，請重新整理';return;}
+  const g=gl();
+  const rows=list.map(st=>{const a=analyse(st),s=a.score;return {
+    '班級':session.cls,'座號':st.seat,'安妮':st.no,'指南':g.name,'評分方式':g.mode==='ratio'?'依比例給分':'全對才給分','總分':+s.total.toFixed(1),
+    '壓胸得分':+s.compPts.toFixed(1),'吹氣得分':+s.respPts.toFixed(1),'按壓次數':a.agg.compTotal,'速率正確率%':+s.acc.rate.toFixed(0),'深度正確率%':+s.acc.depth.toFixed(0),
+    '回彈正確率%':+s.acc.recoil.toFixed(0),'位置正確率%':+s.acc.position.toFixed(0),'平均深度cm':+(a.avgDepth/10).toFixed(1),'平均速率':Math.round(a.avgRate),
+    '吹氣口數':a.agg.respTotal,'容量正確口數':a.agg.volOk,'過度通氣口數':a.over,'AED中斷秒':a.aed?+a.aed.dur.toFixed(1):'','最長中斷秒':+a.longest.toFixed(1),
+    ['超過'+g.pauseRed+'秒中斷次數']:a.redPauses,'按壓時間占比%':+a.ccf.toFixed(0),'面板顯示':st.led?'開':'關',
+    '位置錯誤區段':a.segs.map(x=>`第${x.from}${x.to>x.from?'-'+x.to:''}下${DIRS[x.dir]}`).join('；'),
+    '換手':session.handoff?a.parts.map(p=>`第${p.who}位 第${p.from}-${p.to}下 錯${p.errs}`).join('；'):'不需換手'};});
+  const pz=[];list.forEach(st=>{const a=analyse(st);a.pauses.forEach(p=>pz.push({'班級':session.cls,'座號':st.seat,'開始於':fmtT(p.start),'第幾下之前':p.after,'秒數':+p.dur.toFixed(1),'類型':p===a.aed?'AED':p.breaths?'吹氣':'其他'}));});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'成績');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pz.length?pz:[{'說明':'沒有中斷'}]),'中斷明細');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});save(fname('xlsx'),new Uint8Array(out));
+};
+$('btnExportHtml').onclick=()=>{
+  const list=doneStations();if(!list.length){$('exportMsg').textContent='還沒有成績可以匯出';return;}
+  const g=gl();const css=document.querySelector('style').textContent;
+  const pages=list.map(st=>`<section class="page">${reportHTML(st,analyse(st),g,false)}</section>`).join('');
+  const doc=`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${esc(fname('html'))}</title><style>${css}
+  body{padding:24px} .page{page-break-after:always;margin-bottom:32px} @media print{body{padding:0}.page{margin:0}} @page{size:A4 landscape;margin:10mm}</style></head>
+  <body><p class="small muted">${esc(session.cls||'')} 班・${esc(g.name)}・${esc(new Date(session.startedAt||Date.now()).toLocaleString('zh-TW'))}・用瀏覽器開啟後可列印或另存 PDF（一人一頁）</p>${pages}</body></html>`;
+  save(fname('html'),doc);
+};
+
+/* ================= 介面綁定 ================= */
+let currentView='monitor';
+function setView(v){currentView=v;document.querySelector('.app').classList.toggle('dash',v==='monitor');['monitor','results','settings'].forEach(k=>{$('v-'+k).hidden=k!==v;});
+  document.querySelectorAll('.nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.view===v?'page':'false'));
+  if(v==='results')renderResults();if(v==='settings')renderSettings();}
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+$('cls').addEventListener('input',e=>{session.cls=e.target.value.trim();autosave();if(currentView==='results')renderResults();});
+$('glSel').addEventListener('change',e=>{session.glId=e.target.value;render();});
+$('handoffOn').addEventListener('change',e=>{session.handoff=e.target.checked;render();});
+$('ledAllOn').onclick=()=>{if(session.running)return;session.stations.forEach(st=>st.led=true);document.querySelectorAll('[data-k=led]').forEach(x=>x.checked=true);renderLive();};
+$('ledAllOff').onclick=()=>{if(session.running)return;session.stations.forEach(st=>st.led=false);document.querySelectorAll('[data-k=led]').forEach(x=>x.checked=false);renderLive();};
+$('btnStart').onclick=startExam;$('btnStop').onclick=stopExam;
+$('demo').addEventListener('change',e=>{
+  if(session.running)stopExam();session.demo=e.target.checked;stopSims();
+  if(session.demo){const seats=['3','8','12','17','21',''];session.stations.forEach((st,i)=>{st.seat=seats[i];st.rec=newRec();st.status=i<5?'on':'idle';st.led=i!==2;});if(!session.cls){session.cls='305';$('cls').value='305';}}
+  else session.stations.forEach(st=>{st.status=st.port?'on':'idle';st.rec=newRec();});
+  document.querySelectorAll('[data-k=led]').forEach((x,i)=>x.checked=session.stations[i].led);
+  setView('monitor');render();});
+if(!serialOK){$('serialBanner').hidden=false;$('serialBanner').textContent='這台裝置的瀏覽器不能直接連安妮。可以用「示範模式」看效果；正式考試請用 Android 或電腦的 Chrome。';}
+fillGlSel();render();
+const saved=store.get('annie.session',null);
+if(saved&&saved.stations&&saved.stations.some(s=>s.rec&&s.rec.comps&&s.rec.comps.length)){
+  $('restoreText').textContent=`找到上一場沒匯出的紀錄（${saved.cls||'未填班級'}，${new Date(saved.startedAt).toLocaleString('zh-TW')}）。`;$('restoreBanner').hidden=false;
+  $('btnRestore').onclick=()=>{restore(saved);$('restoreBanner').hidden=true;setView('results');};
+  $('btnDiscard').onclick=()=>{store.set('annie.session',null);$('restoreBanner').hidden=true;};
+}
+window.__annie={session,score,analyse,guidelines,startExam,stopExam,setView,DEFAULT_GL};
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>安妮連線測試</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow instrument column — numbered test steps, live readout grid, raw log last */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --ink:#1b2328; --muted:#5d6b73; --line:#d9e0e4;
+  --accent:#b3261e; --accent-ink:#ffffff; --ok:#1d7a46; --warn:#9a6200; --bad:#b3261e;
+  --ok-bg:#e3f3ea; --warn-bg:#fbf0d9; --bad-bg:#fbe5e3; --mono-bg:#eef2f4;
+  --f-body:"Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171a; --panel:#1a2125; --ink:#e6ecef; --muted:#9aa8b0; --line:#2c363c;
+  --accent:#ef6b62; --accent-ink:#1a0f0e; --ok:#5fcf8f; --warn:#e5b25a; --bad:#ef6b62;
+  --ok-bg:#163224; --warn-bg:#352a14; --bad-bg:#3a1c1a; --mono-bg:#151b1e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171a; --panel:#1a2125; --ink:#e6ecef; --muted:#9aa8b0; --line:#2c363c;
+  --accent:#ef6b62; --accent-ink:#1a0f0e; --ok:#5fcf8f; --warn:#e5b25a; --bad:#ef6b62;
+  --ok-bg:#163224; --warn-bg:#352a14; --bad-bg:#3a1c1a; --mono-bg:#151b1e; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:1.6rem;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:4px 0 0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+h2{font-size:1.05rem;margin:0;display:flex;gap:10px;align-items:baseline}
+h2 .n{font-family:var(--f-mono);color:var(--accent);font-weight:600}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.chk{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:8px;background:var(--mono-bg)}
+.chk b{font-size:.85rem;color:var(--muted);font-weight:500}
+.pill{display:inline-block;font-weight:700;font-size:.95rem}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-weight:500;border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.status{font-weight:700}
+label.sw{display:flex;gap:6px;align-items:center;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.cell{padding:10px 12px;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;gap:2px}
+.cell b{font-size:.8rem;color:var(--muted);font-weight:500}
+.cell span{font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.depthbar{height:14px;background:var(--mono-bg);border-radius:7px;position:relative;overflow:hidden}
+.depthbar .band{position:absolute;top:0;bottom:0;background:var(--ok-bg)}
+.depthbar .fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);width:0%;transition:width .05s linear}
+pre{font-family:var(--f-mono);font-size:.78rem;background:var(--mono-bg);border-radius:8px;padding:10px;margin:0;overflow-x:auto;white-space:pre;max-height:240px}
+.peers{display:flex;flex-direction:column;gap:6px}
+.peer{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 10px;border-radius:8px;background:var(--mono-bg);font-size:.9rem}
+.peer .me{color:var(--accent);font-weight:700}
+textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.78rem;min-height:120px;border:1px solid var(--line);border-radius:8px;background:var(--mono-bg);color:var(--ink);padding:8px}
+@media (prefers-reduced-motion:reduce){.depthbar .fill{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>安妮連線測試</h1>
+    <p class="lede">驗證這台裝置能不能直接用網頁連上 SherpaX 安妮，以及多台裝置能不能即時同步。照 1 → 4 做，最後按「複製測試結果」貼回對話。</p>
+  </header>
+
+  <section aria-labelledby="s1">
+    <h2 id="s1"><span class="n">1</span>環境檢查</h2>
+    <div class="checks">
+      <div class="chk"><b>藍牙序列埠（Web Serial）</b><span class="pill" id="c-serial">檢查中…</span></div>
+      <div class="chk"><b>此頁面允許使用序列埠</b><span class="pill" id="c-policy">檢查中…</span></div>
+      <div class="chk"><b>多台裝置即時同步</b><span class="pill" id="c-room">檢查中…</span></div>
+      <div class="chk"><b>瀏覽器</b><span class="pill" id="c-ua">—</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s2">
+    <h2 id="s2"><span class="n">2</span>連線安妮</h2>
+    <p class="hint">先在裝置的藍牙設定裡和安妮配對，再按下方按鈕，從清單選安妮。</p>
+    <div class="row">
+      <button class="primary" id="btn-connect">選擇安妮並連線</button>
+      <button id="btn-disconnect" disabled>中斷連線</button>
+      <span class="status" id="conn-status">尚未連線</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="s3">
+    <h2 id="s3"><span class="n">3</span>開始測試與即時數值</h2>
+    <div class="row">
+      <label class="sw"><input type="checkbox" id="led" checked> 安妮面板顯示（LED）</label>
+      <button class="primary" id="btn-start" disabled>開始</button>
+      <button id="btn-stop" disabled>停止</button>
+      <span class="hint" id="rate">每秒 0 筆</span>
+    </div>
+    <div>
+      <div class="hint">即時深度（綠色＝5–6 公分）</div>
+      <div class="depthbar"><div class="band" style="left:50%;width:10%"></div><div class="fill" id="bar"></div></div>
+    </div>
+    <div class="grid">
+      <div class="cell"><b>即時深度</b><span id="v-depth">— mm</span></div>
+      <div class="cell"><b>手位置代碼</b><span id="v-pos">—</span></div>
+      <div class="cell"><b>按壓 好／總數</b><span id="v-comp">— / —</span></div>
+      <div class="cell"><b>速率 不足／適當</b><span id="v-rate">— / —</span></div>
+      <div class="cell"><b>深度 不足／適當</b><span id="v-dep">— / —</span></div>
+      <div class="cell"><b>完全回彈</b><span id="v-recoil">—</span></div>
+      <div class="cell"><b>偏 上/下/左/右</b><span id="v-dir">—</span></div>
+      <div class="cell"><b>即時吹氣量</b><span id="v-vol">— ml</span></div>
+      <div class="cell"><b>吹氣 好／總數</b><span id="v-resp">— / —</span></div>
+      <div class="cell"><b>吹氣量 不足／適當</b><span id="v-rvol">— / —</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s4">
+    <h2 id="s4"><span class="n">4</span>其他裝置（iPad 監看測試）</h2>
+    <p class="hint">在另一台裝置（例如 iPad）打開這個頁面，兩邊都會在這裡看到對方；連線安妮的那台會把即時數值傳過來。</p>
+    <div class="peers" id="peers"><div class="peer">尚未偵測到其他裝置</div></div>
+  </section>
+
+  <section aria-labelledby="s5">
+    <h2 id="s5"><span class="n">5</span>原始資料與紀錄</h2>
+    <pre id="raw">（連線後顯示最近 5 筆原始資料）</pre>
+    <pre id="log"></pre>
+    <div class="row"><button class="primary" id="btn-copy">複製測試結果</button><span class="hint" id="copy-msg"></span></div>
+    <textarea id="report" readonly aria-label="測試結果文字"></textarea>
+  </section>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const SPP='00001101-0000-1000-8000-00805f9b34fb';
+  const state={serial:'',policy:'',room:'',port:null,reader:null,writer:null,frames:0,dropped:0,lastFrames:[],perSec:0,latest:null,started:false,info:''};
+  const logs=[];
+  function log(m){const t=new Date().toLocaleTimeString('zh-TW',{hour12:false});logs.push(t+'  '+m);if(logs.length>200)logs.shift();$('log').textContent=logs.slice(-40).join('\n');buildReport();}
+  function setPill(id,text,cls){const el=$(id);el.textContent=text;el.className='pill '+cls;}
+
+  // ---------- 1. 環境檢查 ----------
+  const ua=navigator.userAgent;const m=ua.match(/(Chrome|CriOS|Edg)\/(\d+)/);
+  const isIOS=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  state.info=(isIOS?'iOS/iPadOS ':(/Android/.test(ua)?'Android ':(/Mac/.test(ua)?'macOS ':(/Windows/.test(ua)?'Windows ':(/CrOS/.test(ua)?'ChromeOS ':'')))))+(m?m[1]+' '+m[2]:'非 Chrome');
+  setPill('c-ua',state.info,'ok');
+  if('serial' in navigator){state.serial='支援';setPill('c-serial','支援','ok');}
+  else{state.serial='不支援';setPill('c-serial',isIOS?'不支援（iPad/iPhone 正常現象）':'不支援',isIOS?'warn':'bad');$('btn-connect').disabled=true;}
+  try{
+    const pp=document.permissionsPolicy||document.featurePolicy;
+    if(pp&&pp.allowsFeature){const ok=pp.allowsFeature('serial');state.policy=ok?'允許':'被封鎖';setPill('c-policy',ok?'允許':'被封鎖',ok?'ok':'bad');}
+    else{state.policy='無法判斷（連線時再確認）';setPill('c-policy','無法判斷，連線時確認','warn');}
+  }catch(e){state.policy='無法判斷';setPill('c-policy','無法判斷','warn');}
+
+  // ---------- 4. 即時同步（room） ----------
+  let room=null;
+  (async()=>{
+    try{room=window.claude&&window.claude.use?await window.claude.use('room'):null;}catch(e){room=null;}
+    if(!room){state.room='無法使用';setPill('c-room','無法使用','bad');log('即時同步：無法使用');buildReport();return;}
+    state.room='可以使用';setPill('c-room','可以使用','ok');log('即時同步：已連上');
+    try{await room.presence({device:state.info,connected:false});}catch(e){log('同步狀態送出失敗：'+(e.code||e.message));}
+    room.onPeers(ch=>renderPeers(ch.peers),e=>log('同步錯誤：'+e.code));
+    renderPeers(room.peers());
+  })();
+  function renderPeers(peers){
+    const box=$('peers');box.textContent='';
+    if(!peers||!peers.length){const d=document.createElement('div');d.className='peer';d.textContent='尚未偵測到其他裝置';box.appendChild(d);return;}
+    state.peerCount=peers.length;
+    peers.forEach(p=>{
+      const pr=p.presence||{};const d=document.createElement('div');d.className='peer';
+      const a=document.createElement('span');a.textContent=(p.isMe?'這台：':'其他裝置：')+(pr.device||'未知');if(p.isMe)a.className='me';d.appendChild(a);
+      const b=document.createElement('span');b.textContent=pr.connected?'已連安妮':'未連安妮';d.appendChild(b);
+      if(pr.connected){const c=document.createElement('span');c.textContent='深度 '+(pr.depth??'—')+' mm｜按壓 '+(pr.comps??'—')+' 下｜吹氣 '+(pr.vol??'—')+' ml';d.appendChild(c);}
+      box.appendChild(d);
+    });
+    buildReport();
+  }
+  let lastPush=0;
+  function pushPresence(force){
+    if(!room)return;const now=Date.now();if(!force&&now-lastPush<500)return;lastPush=now;
+    const f=state.latest;
+    room.presence({device:state.info,connected:!!state.port,depth:f?f.depth:null,comps:f?f.compTotal:null,vol:f?f.vol:null}).catch(()=>{});
+  }
+
+  // ---------- 2. 連線 ----------
+  $('btn-connect').onclick=async()=>{
+    try{
+      const port=await navigator.serial.requestPort({allowedBluetoothServiceClassIds:[SPP]});
+      const info=port.getInfo?port.getInfo():{};
+      log('已選擇裝置：'+JSON.stringify(info));
+      await port.open({baudRate:9600});
+      state.port=port;state.writer=port.writable.getWriter();
+      $('conn-status').textContent='已連線';$('btn-disconnect').disabled=false;$('btn-start').disabled=false;$('btn-stop').disabled=false;$('btn-connect').disabled=true;
+      log('連線成功');pushPresence(true);
+      readLoop(port);
+    }catch(e){
+      log('連線失敗：'+e.name+'｜'+e.message);
+      $('conn-status').textContent='連線失敗（'+e.name+'）';
+      if(e.name==='SecurityError'){state.policy='被封鎖（SecurityError）';setPill('c-policy','被封鎖','bad');}
+    }
+  };
+  $('btn-disconnect').onclick=()=>disconnect('手動中斷');
+  async function disconnect(why){
+    const p=state.port;state.port=null;
+    try{if(state.reader){await state.reader.cancel();}}catch(e){}
+    try{if(state.writer){state.writer.releaseLock();}}catch(e){}
+    try{if(p)await p.close();}catch(e){}
+    state.reader=null;state.writer=null;state.started=false;
+    $('conn-status').textContent='已中斷（'+why+'）';$('btn-disconnect').disabled=true;$('btn-start').disabled=true;$('btn-stop').disabled=true;$('btn-connect').disabled=!('serial' in navigator);
+    log('連線中斷：'+why);pushPresence(true);
+  }
+
+  // ---------- 資料解析：36 bytes，最後一個是 55 ----------
+  let buf=new Uint8Array(0);
+  function onBytes(chunk){
+    const nb=new Uint8Array(buf.length+chunk.length);nb.set(buf);nb.set(chunk,buf.length);buf=nb;
+    let i=0;
+    while(buf.length-i>=36){
+      if(buf[i+35]===55){handleFrame(buf.slice(i,i+36));i+=36;}
+      else{i++;state.dropped++;}
+    }
+    buf=buf.slice(i);
+  }
+  const u=(lo,hi)=>hi*100+lo;
+  function handleFrame(b){
+    state.frames++;state._sec=(state._sec||0)+1;
+    const f={depth:100-b[0],pos:b[1],compGood:u(b[2],b[3]),compTotal:u(b[4],b[5]),rateLow:u(b[6],b[7]),rateOk:u(b[8],b[9]),
+      depthLow:u(b[10],b[11]),depthOk:u(b[12],b[13]),recoil:u(b[14],b[15]),up:b[16],down:b[17],right:b[18],left:b[19],
+      vol:b[20]*10,rtime:b[21],respGood:u(b[22],b[23]),respTotal:u(b[24],b[25]),volLow:u(b[26],b[27]),volOk:u(b[28],b[29])};
+    state.latest=f;
+    state.lastFrames.push(Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(' '));if(state.lastFrames.length>5)state.lastFrames.shift();
+    if(state.frames===1)log('收到第一筆資料');
+    render(f);pushPresence(false);
+  }
+  setInterval(()=>{state.perSec=state._sec||0;state._sec=0;$('rate').textContent='每秒 '+state.perSec+' 筆';if(state.port)$('raw').textContent=state.lastFrames.join('\n')||'（尚未收到資料）';},1000);
+  function render(f){
+    $('v-depth').textContent=f.depth+' mm';$('bar').style.width=Math.max(0,Math.min(100,f.depth))+'%';
+    $('v-pos').textContent=f.pos;$('v-comp').textContent=f.compGood+' / '+f.compTotal;
+    $('v-rate').textContent=f.rateLow+' / '+f.rateOk;$('v-dep').textContent=f.depthLow+' / '+f.depthOk;
+    $('v-recoil').textContent=f.recoil;$('v-dir').textContent=f.up+'/'+f.down+'/'+f.left+'/'+f.right;
+    $('v-vol').textContent=f.vol+' ml';$('v-resp').textContent=f.respGood+' / '+f.respTotal;$('v-rvol').textContent=f.volLow+' / '+f.volOk;
+  }
+  async function readLoop(port){
+    while(port.readable&&state.port===port){
+      const reader=port.readable.getReader();state.reader=reader;
+      try{while(true){const {value,done}=await reader.read();if(done)break;if(value)onBytes(value);}}
+      catch(e){log('讀取錯誤：'+e.name+'｜'+e.message);}
+      finally{try{reader.releaseLock();}catch(e){}}
+      if(state.port!==port)return;
+      break;
+    }
+    if(state.port===port)disconnect('安妮斷線或關機');
+  }
+
+  // ---------- 3. 開始／停止（照原廠：每 0.1 秒送 1,0,1,0,1,1,1,1） ----------
+  function packet(init){
+    const led=$('led').checked?2:3;
+    // 開始旗標, 顯示模式, 單位(0=mm), 深度下限, 上限(mm), 速率下限, 上限, 吹氣量下限/10, 上限/10, 吹氣時間下限/100ms, 上限, 結尾0xFF
+    return new Uint8Array([init,led,0,50,60,100,120,40,60,5,15,0xFF]);
+  }
+  async function send(init){if(!state.writer)return;try{await state.writer.write(packet(init));}catch(e){log('送出失敗：'+e.message);}}
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  $('btn-start').onclick=async()=>{
+    $('btn-start').disabled=true;log('送出開始指令（LED '+($('led').checked?'開':'關')+'）');
+    for(const v of [1,0,1,0,1,1,1,1]){await send(v);await sleep(100);}
+    state.started=true;$('btn-start').disabled=false;log('開始指令送完');
+  };
+  $('btn-stop').onclick=async()=>{await send(0);state.started=false;log('送出停止指令');};
+
+  // ---------- 測試結果 ----------
+  function buildReport(){
+    const f=state.latest;
+    const lines=['【安妮連線測試結果】','裝置：'+state.info,'藍牙序列埠：'+state.serial,'頁面權限：'+state.policy,'即時同步：'+state.room+(state.peerCount?'（目前 '+state.peerCount+' 台在線）':''),
+      '連線：'+$('conn-status').textContent,'收到資料筆數：'+state.frames+'，每秒約 '+state.perSec+' 筆，丟棄位元組 '+state.dropped,
+      '最新數值：'+(f?JSON.stringify(f):'無'),'最近原始資料：',...state.lastFrames,'紀錄：',...logs.slice(-15)];
+    $('report').value=lines.join('\n');
+  }
+  $('btn-copy').onclick=()=>{
+    buildReport();const t=$('report').value;
+    navigator.clipboard.writeText(t).then(()=>{$('copy-msg').textContent='已複製，請貼回對話';}).catch(()=>{$('report').select();$('copy-msg').textContent='無法自動複製，已選取文字，請手動複製';});
+  };
+  buildReport();
+})();
+</script>
+
+</body>
+</html>
