@@ -80,9 +80,11 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
 
   <section aria-labelledby="s2">
     <h2 id="s2"><span class="n">2</span>連線安妮</h2>
-    <p class="hint">先在裝置的藍牙設定裡和安妮配對，再按下方按鈕，從清單選安妮。</p>
+    <p class="hint">先在裝置的藍牙設定裡和安妮配對，再按方式 A。清單裡找不到安妮時，依序試方式 B、方式 C，並記下哪一種看得到安妮。</p>
     <div class="row">
-      <button class="primary" id="btn-connect">選擇安妮並連線</button>
+      <button class="primary" id="btn-connect">選擇安妮並連線（方式 A）</button>
+      <button id="btn-connect-b">方式 B</button>
+      <button id="btn-connect-c">方式 C</button>
       <button id="btn-disconnect" disabled>中斷連線</button>
       <span class="status" id="conn-status">尚未連線</span>
     </div>
@@ -182,14 +184,21 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
   }
 
   // ---------- 2. 連線 ----------
-  $('btn-connect').onclick=async()=>{
+  const MODES={A:{allowedBluetoothServiceClassIds:[SPP]},B:{filters:[{bluetoothServiceClassId:SPP}]},C:undefined};
+  async function listKnown(){try{const ps=await navigator.serial.getPorts();log('已授權過的序列埠：'+ps.length+' 個 '+ps.map(p=>JSON.stringify(p.getInfo?p.getInfo():{})).join(' '));}catch(e){log('讀取已授權序列埠失敗：'+e.name);}}
+  if('serial' in navigator)listKnown();
+  $('btn-connect-b').onclick=()=>doConnect('B');$('btn-connect-c').onclick=()=>doConnect('C');
+  $('btn-connect').onclick=()=>doConnect('A');
+  async function doConnect(mode){
+    log('方式 '+mode+'：開啟選擇清單');
     try{
-      const port=await navigator.serial.requestPort({allowedBluetoothServiceClassIds:[SPP]});
+      const port=await navigator.serial.requestPort(MODES[mode]);
+      log('方式 '+mode+' 找到裝置');
       const info=port.getInfo?port.getInfo():{};
       log('已選擇裝置：'+JSON.stringify(info));
       await port.open({baudRate:9600});
       state.port=port;state.writer=port.writable.getWriter();
-      $('conn-status').textContent='已連線';$('btn-disconnect').disabled=false;$('btn-start').disabled=false;$('btn-stop').disabled=false;$('btn-connect').disabled=true;
+      $('conn-status').textContent='已連線';$('btn-disconnect').disabled=false;$('btn-start').disabled=false;$('btn-stop').disabled=false;$('btn-connect').disabled=true;state.mode=mode;
       log('連線成功');pushPresence(true);
       readLoop(port);
     }catch(e){
@@ -197,7 +206,7 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
       $('conn-status').textContent='連線失敗（'+e.name+'）';
       if(e.name==='SecurityError'){state.policy='被封鎖（SecurityError）';setPill('c-policy','被封鎖','bad');}
     }
-  };
+  }
   $('btn-disconnect').onclick=()=>disconnect('手動中斷');
   async function disconnect(why){
     const p=state.port;state.port=null;
@@ -270,7 +279,7 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
   function buildReport(){
     const f=state.latest;
     const lines=['【安妮連線測試結果】','裝置：'+state.info,'藍牙序列埠：'+state.serial,'頁面權限：'+state.policy,'即時同步：'+state.room+(state.peerCount?'（目前 '+state.peerCount+' 台在線）':''),
-      '連線：'+$('conn-status').textContent,'收到資料筆數：'+state.frames+'，每秒約 '+state.perSec+' 筆，丟棄位元組 '+state.dropped,
+      '連線：'+$('conn-status').textContent+(state.mode?'（方式 '+state.mode+'）':''),'收到資料筆數：'+state.frames+'，每秒約 '+state.perSec+' 筆，丟棄位元組 '+state.dropped,
       '最新數值：'+(f?JSON.stringify(f):'無'),'最近原始資料：',...state.lastFrames,'紀錄：',...logs.slice(-15)];
     $('report').value=lines.join('\n');
   }
