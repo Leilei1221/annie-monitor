@@ -222,6 +222,8 @@ async function openWithRetry(port,onTry){let last;for(let i=1;i<=4;i++){try{awai
   // ---------- 資料解析：36 bytes，最後一個是 55 ----------
   let buf=new Uint8Array(0);
   function onBytes(chunk){
+    state.rxBytes=(state.rxBytes||0)+chunk.length;if(state.rxBytes===chunk.length)log('收到第一批原始位元組：'+Array.from(chunk.slice(0,48)).map(x=>x.toString(16).padStart(2,'0')).join(' '));
+    state.rawTail=(state.rawTail||[]).concat(Array.from(chunk)).slice(-120);
     const nb=new Uint8Array(buf.length+chunk.length);nb.set(buf);nb.set(chunk,buf.length);buf=nb;
     let i=0;
     while(buf.length-i>=36){
@@ -267,7 +269,7 @@ async function openWithRetry(port,onTry){let last;for(let i=1;i<=4;i++){try{awai
     // 開始旗標, 顯示模式, 單位(0=mm), 深度下限, 上限(mm), 速率下限, 上限, 吹氣量下限/10, 上限/10, 吹氣時間下限/100ms, 上限, 結尾0xFF
     return new Uint8Array([init,led,0,50,60,100,120,40,60,5,15,0xFF]);
   }
-  async function send(init){if(!state.writer)return;try{await state.writer.write(packet(init));}catch(e){log('送出失敗：'+e.message);}}
+  async function send(init){if(!state.writer){log('送出失敗：沒有可寫入的連線');return;}try{await state.writer.write(packet(init));log('已送出指令 '+init+'：'+Array.from(packet(init)).join(','));}catch(e){log('送出失敗：'+e.name+'｜'+e.message);}}
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   $('btn-start').onclick=async()=>{
     $('btn-start').disabled=true;log('送出開始指令（LED '+($('led').checked?'開':'關')+'）');
@@ -280,7 +282,8 @@ async function openWithRetry(port,onTry){let last;for(let i=1;i<=4;i++){try{awai
   function buildReport(){
     const f=state.latest;
     const lines=['【安妮連線測試結果】','裝置：'+state.info,'藍牙序列埠：'+state.serial,'頁面權限：'+state.policy,'即時同步：'+state.room+(state.peerCount?'（目前 '+state.peerCount+' 台在線）':''),
-      '連線：'+$('conn-status').textContent+(state.mode?'（方式 '+state.mode+'）':''),'收到資料筆數：'+state.frames+'，每秒約 '+state.perSec+' 筆，丟棄位元組 '+state.dropped,
+      '連線：'+$('conn-status').textContent+(state.mode?'（方式 '+state.mode+'）':''),'收到原始位元組：'+(state.rxBytes||0)+'，解析成功 '+state.frames+' 筆，每秒約 '+state.perSec+' 筆，丟棄位元組 '+state.dropped,
+      '最後收到的原始位元組：'+((state.rawTail||[]).map(x=>x.toString(16).padStart(2,'0')).join(' ')||'無'),
       '最新數值：'+(f?JSON.stringify(f):'無'),'最近原始資料：',...state.lastFrames,'紀錄：',...logs.slice(-15)];
     $('report').value=lines.join('\n');
   }
