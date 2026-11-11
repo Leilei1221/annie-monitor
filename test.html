@@ -189,6 +189,7 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
   if('serial' in navigator)listKnown();
   $('btn-connect-b').onclick=()=>doConnect('B');$('btn-connect-c').onclick=()=>doConnect('C');
   $('btn-connect').onclick=()=>doConnect('A');
+async function openWithRetry(port,onTry){let last;for(let i=1;i<=4;i++){try{await port.open({baudRate:9600});return;}catch(e){last=e;if(onTry)onTry(i,e);if(e.name==='InvalidStateError')return;await new Promise(r=>setTimeout(r,1500));}}throw last;}
   async function doConnect(mode){
     log('方式 '+mode+'：開啟選擇清單');
     try{
@@ -196,7 +197,7 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:.7
       log('方式 '+mode+' 找到裝置');
       const info=port.getInfo?port.getInfo():{};
       log('已選擇裝置：'+JSON.stringify(info));
-      await port.open({baudRate:9600});
+      await openWithRetry(port,(i,e)=>log('第 '+i+' 次打開失敗：'+e.name+'｜'+e.message));
       state.port=port;state.writer=port.writable.getWriter();
       $('conn-status').textContent='已連線';$('btn-disconnect').disabled=false;$('btn-start').disabled=false;$('btn-stop').disabled=false;$('btn-connect').disabled=true;state.mode=mode;
       log('連線成功');pushPresence(true);
