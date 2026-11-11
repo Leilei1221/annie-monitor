@@ -298,8 +298,9 @@ function decode(b){return {depth:100-b[0],comp:u(b[4],b[5]),rateOk:u(b[8],b[9]),
 const COUNTERS=['comp','rateOk','depthOk','recoil','up','down','left','right','resp','volOk'];
 function makeParser(st){
   let buf=new Uint8Array(0);
-  return chunk=>{const nb=new Uint8Array(buf.length+chunk.length);nb.set(buf);nb.set(chunk,buf.length);buf=nb;
-    let i=0;while(buf.length-i>=36){if(buf[i+35]===55){onFrame(st,decode(buf.subarray(i,i+36)));i+=36;}else i++;}
+  return chunk=>{st.rxBytes=(st.rxBytes||0)+chunk.length;st.rxLast=Array.from(chunk.slice(0,40)).map(x=>x.toString(16).padStart(2,'0')).join(' ');
+    const nb=new Uint8Array(buf.length+chunk.length);nb.set(buf);nb.set(chunk,buf.length);buf=nb;
+    let i=0;while(buf.length-i>=36){if(buf[i+35]===55){st.rxFrames=(st.rxFrames||0)+1;onFrame(st,decode(buf.subarray(i,i+36)));i+=36;}else i++;}
     buf=buf.slice(i);};
 }
 function onFrame(st,f){
@@ -594,6 +595,8 @@ function renderLive(){
     if(session.running&&last&&last.dir&&!pausing)flags.push(`<span class="pill neg">${DIRS[last.dir]}・第 ${n} 下</span>`);
     if(session.handoff&&r.handoffs.length)flags.push(`<span class="pill neu">第 ${r.handoffs.length+1} 位</span>`);
     if(!st.led)flags.push('<span class="pill neu">面板關</span>');
+    if(on&&!session.demo){const b=st.rxBytes||0,f=st.rxFrames||0;
+      flags.push(!b?'<span class="pill warn">還沒收到安妮的資料</span>':(!f?`<span class="pill warn" title="${esc(st.rxLast||'')}">收到 ${b} 位元組，格式對不上</span>`:`<span class="pill neu">已收到 ${f} 筆資料</span>`));}
     q('flags').innerHTML=flags.join('');
     q('hand').hidden=!(session.handoff&&session.running);q('undo').hidden=!(session.handoff&&session.running&&r.handoffs.length);
     const si=q('seat');if(document.activeElement!==si&&si.value!==st.seat)si.value=st.seat;
