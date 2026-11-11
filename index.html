@@ -380,7 +380,7 @@ const serialOK='serial' in navigator;
 async function connect(st,reuse){
   if(session.demo){return;}
   try{
-    const port=reuse&&st.port?st.port:await navigator.serial.requestPort({allowedBluetoothServiceClassIds:[SPP]});
+    const port=reuse&&st.port?st.port:await navigator.serial.requestPort({filters:[{bluetoothServiceClassId:SPP}],allowedBluetoothServiceClassIds:[SPP]});
     st.status='connecting';render();
     await openWithRetry(port,(i,e)=>showSerialMsg('第 '+st.no+' 台第 '+i+' 次打開失敗，重試中…（'+e.message+'）'));
     showSerialMsg('');
