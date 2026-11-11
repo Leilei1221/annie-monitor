@@ -382,7 +382,9 @@ async function connect(st,reuse){
   try{
     const port=reuse&&st.port?st.port:await navigator.serial.requestPort({filters:[{bluetoothServiceClassId:SPP}],allowedBluetoothServiceClassIds:[SPP]});
     st.status='connecting';render();
-    await openWithRetry(port,(i,e)=>showSerialMsg('第 '+st.no+' 台第 '+i+' 次打開失敗，重試中…（'+e.message+'）'));
+    st.queued=true;render();
+    await queuedOpen(port,(i,e)=>{st.queued=false;showSerialMsg('第 '+st.no+' 台第 '+i+' 次打開失敗，重試中（最多 6 次）…');});
+    st.queued=false;
     showSerialMsg('');
     st.port=port;st.writer=port.writable.getWriter();st.status='on';st.rxBytes=0;st.rxFrames=0;st.rxAt=0;st.openedAt=performance.now();
     try{st.portInfo=port.getInfo?port.getInfo():{};}catch(e){st.portInfo={};}
@@ -390,12 +392,16 @@ async function connect(st,reuse){
     readLoop(st,port);render();
     if(session.running)handshake(st);
   }catch(e){
+    st.queued=false;
     st.status=st.port?'lost':'idle';
-    showSerialMsg(e.name==='SecurityError'?'這個頁面不允許使用藍牙序列埠。請把狀況告訴 Claude。':(e.name==='NotFoundError'?'':'第 '+st.no+' 台連線失敗：'+e.message));
+    showSerialMsg(e.name==='SecurityError'?'這個頁面不允許使用藍牙序列埠。請把狀況告訴 Claude。':(e.name==='NotFoundError'?'':'第 '+st.no+' 台試了 6 次都打不開。請確認這具安妮有開機、沒被其他裝置連著，再按一次「連線」。'));
     render();
   }
 }
-async function openWithRetry(port,onTry){let last;for(let i=1;i<=4;i++){try{await port.open({baudRate:9600});return;}catch(e){last=e;if(onTry)onTry(i,e);if(e.name==='InvalidStateError')return;await new Promise(r=>setTimeout(r,1500));}}throw last;}
+// Mac／Windows 的藍牙一次只能「建立」一條連線：幾台同時打開會互相打架，所以排隊一台一台來
+let openQueue=Promise.resolve();
+function queuedOpen(port,onTry){const job=openQueue.then(()=>openWithRetry(port,onTry));openQueue=job.catch(()=>{}).then(()=>sleep(800));return job;}
+async function openWithRetry(port,onTry){let last;for(let i=1;i<=6;i++){try{await port.open({baudRate:9600});return;}catch(e){last=e;if(onTry)onTry(i,e);if(e.name==='InvalidStateError')return;await new Promise(r=>setTimeout(r,2500));}}throw last;}
 async function readLoop(st,port){
   const parse=makeParser(st);
   try{
@@ -562,7 +568,7 @@ function renderLive(){
     const on=opened&&(session.demo||(st.rxAt&&performance.now()-st.rxAt<3000));
     if(on)nOn++;if(st.status==='lost')nLost++;if(opened&&!on)nWait++;
     q('dot').className='dot'+(on?' on':opened?' wait':st.status==='lost'?' lost':'');
-    const conn=q('conn');conn.textContent=session.demo?(on?'示範中':'示範'):(opened?'中斷':st.status==='lost'?'重新連線':st.status==='connecting'?'連線中…':'連線');
+    const conn=q('conn');conn.textContent=session.demo?(on?'示範中':'示範'):(opened?'中斷':st.status==='lost'?'重新連線':st.status==='connecting'?(st.queued?'排隊中…':'連線中…'):'連線');
     conn.disabled=session.demo||st.status==='connecting'||(!serialOK);
     q('led').disabled=session.running;
     const dep=on?r.live.depth:0;
